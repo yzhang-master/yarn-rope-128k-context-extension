@@ -1,0 +1,10 @@
+{
+  "head_dim": 64,
+  "base": 10000.0,
+  "original_max_position": 4096,
+  "extended_max_position": 131072,
+  "scaling_factor": 32.0,
+  "beta_fast": 32.0,
+  "beta_slow": 1.0,
+  "mscale_coefficient": 0.1
+}
