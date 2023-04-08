@@ -23,8 +23,10 @@ def train_passkey(
     model.train()
     history = []
     started = time.perf_counter()
+    device = next(model.parameters()).device
     for step in range(steps):
         tokens, labels = make_passkey_batch(batch_size, length, generator)
+        tokens, labels = tokens.to(device), labels.to(device)
         logits = model(tokens)[:, -1]
         loss = F.cross_entropy(logits, labels)
         optimizer.zero_grad(set_to_none=True)
@@ -59,12 +61,14 @@ def evaluate_passkey(
     model.set_rope_method(method)
     model.eval()
     generator = torch.Generator().manual_seed(seed + length)
+    device = next(model.parameters()).device
     correct = 0
     loss_sum = 0.0
     seen = 0
     while seen < samples:
         current_batch = min(batch_size, samples - seen)
         tokens, labels = make_passkey_batch(current_batch, length, generator)
+        tokens, labels = tokens.to(device), labels.to(device)
         logits = model(tokens)[:, -1]
         loss_sum += float(F.cross_entropy(logits, labels, reduction="sum"))
         correct += int((logits.argmax(dim=-1) == labels).sum())
