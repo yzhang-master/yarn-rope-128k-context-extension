@@ -81,18 +81,17 @@ def test_yarn_mscale_corrects_query_key_and_attention_logits() -> None:
     assert torch.allclose(actual_logits, scale**2 * unscaled_logits)
 
 
-def test_shipped_128k_config_computes_last_position_without_lookup_overflow() -> None:
-    payload = json.loads(
-        (Path(__file__).parents[1] / "configs" / "yarn_128k.json").read_text()
-    )
-    config = YaRNConfig(**payload)
-    assert config.extended_max_position == 131_072
-    assert config.scaling_factor == 32
-    rope = ScaledRoPE(config)
-    query = torch.randn(1, 1, 1, 64)
-    key = torch.randn(1, 1, 1, 64)
-    rotated_q, rotated_k = rope(query, key, torch.tensor([131_071]))
-    assert rotated_q.shape == query.shape
-    assert rotated_k.shape == key.shape
-    assert torch.isfinite(rotated_q).all()
-    assert torch.isfinite(rotated_k).all()
+def test_shipped_128k_configs_compute_last_position_without_lookup_overflow() -> None:
+    for filename, head_dim in (("yarn_128k.json", 64), ("tiny_yarn_128k.json", 8)):
+        payload = json.loads((Path(__file__).parents[1] / "configs" / filename).read_text())
+        config = YaRNConfig(**payload)
+        assert config.extended_max_position == 131_072
+        assert config.scaling_factor == 32
+        rope = ScaledRoPE(config)
+        query = torch.randn(1, 1, 1, head_dim)
+        key = torch.randn(1, 1, 1, head_dim)
+        rotated_q, rotated_k = rope(query, key, torch.tensor([131_071]))
+        assert rotated_q.shape == query.shape
+        assert rotated_k.shape == key.shape
+        assert torch.isfinite(rotated_q).all()
+        assert torch.isfinite(rotated_k).all()
