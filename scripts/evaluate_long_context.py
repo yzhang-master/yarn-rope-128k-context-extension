@@ -21,6 +21,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--samples", type=int, default=128)
     parser.add_argument("--batch-size", type=int, default=1)
     parser.add_argument("--device", default="cpu")
+    parser.add_argument(
+        "--rope-config",
+        type=Path,
+        help="Optional JSON override; head_dim must match the checkpoint",
+    )
     parser.add_argument("--output", type=Path)
     return parser.parse_args()
 
@@ -62,11 +67,18 @@ def main() -> None:
     args = parse_args()
     payload = torch.load(args.checkpoint, map_location="cpu", weights_only=True)
     config_values = payload["config"]
-    config_values["rope"] = YaRNConfig(**config_values["rope"])
+    rope_values = (
+        json.loads(args.rope_config.read_text())
+        if args.rope_config
+        else config_values["rope"]
+    )
+    config_values["rope"] = YaRNConfig(**rope_values)
     config = TinyPasskeyConfig(**config_values)
     model = TinyPasskeyModel(config, method=args.method)
     model.load_state_dict(payload["state_dict"])
     model.to(args.device)
+    if args.device.startswith("cuda"):
+        torch.cuda.reset_peak_memory_stats(args.device)
     if args.mode == "passkey":
         report = evaluate_passkey(
             model,
@@ -79,6 +91,8 @@ def main() -> None:
         report = synthetic_perplexity(model, args.length, args.samples, args.batch_size)
     report["method"] = args.method
     report["device"] = args.device
+    if args.device.startswith("cuda"):
+        report["peak_memory_bytes"] = torch.cuda.max_memory_allocated(args.device)
     print(json.dumps(report, indent=2))
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
