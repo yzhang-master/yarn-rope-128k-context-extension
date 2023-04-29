@@ -95,3 +95,18 @@ def test_shipped_128k_configs_compute_last_position_without_lookup_overflow() ->
         assert rotated_k.shape == key.shape
         assert torch.isfinite(rotated_q).all()
         assert torch.isfinite(rotated_k).all()
+
+
+def test_context_config_rejects_inconsistent_extension_and_ramp_parameters() -> None:
+    for overrides in (
+        {"extended_max_position": 65_536},
+        {"scaling_factor": 0.5},
+        {"beta_slow": 32.0, "beta_fast": 32.0},
+    ):
+        values = YaRNConfig().to_dict() | overrides
+        try:
+            YaRNConfig(**values)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(f"invalid context config accepted: {overrides}")
